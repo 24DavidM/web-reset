@@ -1,5 +1,5 @@
-const SUPABASE_URL = 'TU_URL_DE_SUPABASE';
-const SUPABASE_KEY = 'TU_ANON_KEY';
+const SUPABASE_URL = 'https://ilojggjfajbyntuqucvf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlsb2pnZ2pmYWpieW50dXF1Y3ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMTQ5ODUsImV4cCI6MjA4MDg5MDk4NX0.pywQBDVUjyKiWzkBz-ovDKiCwqO1rlt4SFUTk1n_RVA';
 
 document.getElementById('resetForm').addEventListener('submit', async (e) => {
     e.preventDefault();
