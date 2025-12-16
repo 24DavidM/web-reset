@@ -6,19 +6,44 @@ console.log('URL completa:', window.location.href);
 console.log('Hash:', window.location.hash);
 
 // Verificar si hay token al cargar la página
+function _getParamsFromHashOrSearch() {
+    // Primero intenta leer del fragmento (hash), luego de la query string
+    const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : window.location.hash;
+    const search = window.location.search.startsWith('?') ? window.location.search.substring(1) : window.location.search;
+
+    const paramsFromHash = new URLSearchParams(hash);
+    const paramsFromSearch = new URLSearchParams(search);
+
+    // Prioriza el fragmento si tiene token, de lo contrario usa la query
+    const combined = new URLSearchParams();
+
+    // Copiar todos los pares del hash
+    for (const [k, v] of paramsFromHash.entries()) {
+        combined.set(k, v);
+    }
+
+    // Copiar los de search solo si no existen en hash
+    for (const [k, v] of paramsFromSearch.entries()) {
+        if (!combined.has(k)) combined.set(k, v);
+    }
+
+    return combined;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
+    const params = _getParamsFromHashOrSearch();
     const accessToken = params.get('access_token');
     const type = params.get('type');
     const errorParam = params.get('error');
     const errorDescription = params.get('error_description');
 
+    console.log('URL completa:', window.location.href);
+    console.log('Params detectados:', Object.fromEntries(params.entries()));
     console.log('Token encontrado:', accessToken ? 'Sí' : 'No');
     console.log('Tipo:', type);
-    
+
     const errorDiv = document.getElementById('error');
-    
+
     if (errorParam) {
         errorDiv.textContent = `Error: ${errorDescription || errorParam}`;
         errorDiv.style.display = 'block';
@@ -57,9 +82,8 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
         return;
     }
 
-    // Obtener access token de la URL
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
+    // Obtener access token de la URL (hash o query)
+    const params = _getParamsFromHashOrSearch();
     const accessToken = params.get('access_token');
 
     console.log('Intentando actualizar contraseña con token:', accessToken?.substring(0, 20) + '...');
