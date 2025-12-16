@@ -30,7 +30,35 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
   // Obtener access token de la URL
   const hash = window.location.hash.substring(1);
   const params = new URLSearchParams(hash);
-  const accessToken = params.get('access_token');
+  let accessToken = params.get('access_token');
+
+  // Si no hay token en el hash, intentar verificar token de recuperación (PKCE/Magic Link)
+  if (!accessToken) {
+    const queryParams = new URLSearchParams(window.location.search);
+    const token = queryParams.get('token');
+    const type = queryParams.get('type');
+    const email = queryParams.get('email');
+
+    if (token && type === 'recovery') {
+      try {
+        const verifyResponse = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_KEY
+          },
+          body: JSON.stringify({ type, token, email })
+        });
+
+        if (verifyResponse.ok) {
+          const data = await verifyResponse.json();
+          accessToken = data.access_token;
+        }
+      } catch (e) {
+        console.error('Error verificando token:', e);
+      }
+    }
+  }
 
   if (!accessToken) {
     errorDiv.textContent = 'Token inválido o expirado';
