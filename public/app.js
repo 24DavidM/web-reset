@@ -52,8 +52,10 @@ function getTokenFromURL() {
 async function exchangeCodeForToken(code) {
     try {
         console.log('🔄 Intercambiando code por access_token...');
+        console.log('📍 Code recibido:', code);
         
-        const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=recovery`, {
+        // Intentar con el endpoint correcto de Supabase para PKCE
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -64,13 +66,37 @@ async function exchangeCodeForToken(code) {
             })
         });
         
-        if (response.ok) {
-            const data = await response.json();
+        console.log('📍 Response status:', response.status);
+        const data = await response.json();
+        console.log('📍 Response data:', data);
+        
+        if (response.ok && data.access_token) {
             console.log('✅ Token obtenido exitosamente');
             return data.access_token;
         } else {
-            const error = await response.json();
-            console.error('❌ Error al intercambiar code:', error);
+            console.error('❌ Error al intercambiar code:', data);
+            
+            // Si PKCE falla, intentar con password_recovery
+            console.log('🔄 Intentando con grant_type=password_recovery...');
+            const response2 = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password_recovery`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_KEY
+                },
+                body: JSON.stringify({
+                    auth_code: code
+                })
+            });
+            
+            const data2 = await response2.json();
+            console.log('📍 Response 2 data:', data2);
+            
+            if (response2.ok && data2.access_token) {
+                console.log('✅ Token obtenido con password_recovery');
+                return data2.access_token;
+            }
+            
             return null;
         }
     } catch (error) {
