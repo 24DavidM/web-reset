@@ -21,23 +21,62 @@ function getTokenFromURL() {
     const queryToken = searchParams.get('access_token');
     const queryType = searchParams.get('type');
     
+    // También buscar el parámetro 'code' que Supabase envía con PKCE
+    const queryCode = searchParams.get('code');
+    const hashCode = hashParams.get('code');
+    
     console.log('📍 Debug Query:', {
         raw: window.location.search,
         token: queryToken,
-        type: queryType
+        type: queryType,
+        code: queryCode
     });
     
     const finalToken = hashToken || queryToken;
     const finalType = hashType || queryType;
+    const finalCode = hashCode || queryCode;
     
     console.log('📍 Token Final:', finalToken ? '✅ Encontrado' : '❌ No encontrado');
+    console.log('📍 Code:', finalCode ? '✅ Encontrado: ' + finalCode : '❌ No encontrado');
     
     return {
         token: finalToken,
         type: finalType,
+        code: finalCode,
         error: hashParams.get('error') || searchParams.get('error'),
         errorDescription: hashParams.get('error_description') || searchParams.get('error_description')
     };
+}
+
+// Función para intercambiar el code por un access_token
+async function exchangeCodeForToken(code) {
+    try {
+        console.log('🔄 Intercambiando code por access_token...');
+        
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=recovery`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY
+            },
+            body: JSON.stringify({
+                auth_code: code
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Token obtenido exitosamente');
+            return data.access_token;
+        } else {
+            const error = await response.json();
+            console.error('❌ Error al intercambiar code:', error);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Error de red al intercambiar code:', error);
+        return null;
+    }
 }
 
 // Función para extraer token de una URL completa pegada manualmente
@@ -60,8 +99,28 @@ function extractTokenFromFullURL(fullURL) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const { token, type, error, errorDescription } = getTokenFromURL();
+document.addEventListener('DOMContentLoaded', async () => {
+    const { token, type, code, error, errorDescription } = getTokenFromURL();
+    
+    // Si hay un code, intercambiarlo por access_token
+    if (code && !token) {
+        console.log('🔄 Code detectado, intercambiando por access_token...');
+        const accessToken = await exchangeCodeForToken(code);
+        
+        if (accessToken) {
+            // Redirigir con el access_token en el hash
+            console.log('✅ Redirigiendo con access_token...');
+            window.location.hash = `access_token=${accessToken}&type=recovery`;
+            window.location.search = ''; // Limpiar query params
+            window.location.reload();
+            return;
+        } else {
+            const errorDiv = document.getElementById('error');
+            errorDiv.innerHTML = '<strong>❌ Error:</strong> No se pudo obtener el token de acceso. Solicita un nuevo enlace.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+    }
     
     // Agregar listener para el botón de extraer token
     const extractBtn = document.getElementById('extractTokenBtn');
