@@ -6,44 +6,19 @@ console.log('URL completa:', window.location.href);
 console.log('Hash:', window.location.hash);
 
 // Verificar si hay token al cargar la página
-function _getParamsFromHashOrSearch() {
-    // Primero intenta leer del fragmento (hash), luego de la query string
-    const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : window.location.hash;
-    const search = window.location.search.startsWith('?') ? window.location.search.substring(1) : window.location.search;
-
-    const paramsFromHash = new URLSearchParams(hash);
-    const paramsFromSearch = new URLSearchParams(search);
-
-    // Prioriza el fragmento si tiene token, de lo contrario usa la query
-    const combined = new URLSearchParams();
-
-    // Copiar todos los pares del hash
-    for (const [k, v] of paramsFromHash.entries()) {
-        combined.set(k, v);
-    }
-
-    // Copiar los de search solo si no existen en hash
-    for (const [k, v] of paramsFromSearch.entries()) {
-        if (!combined.has(k)) combined.set(k, v);
-    }
-
-    return combined;
-}
-
 window.addEventListener('DOMContentLoaded', () => {
-    const params = _getParamsFromHashOrSearch();
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
     const accessToken = params.get('access_token');
     const type = params.get('type');
     const errorParam = params.get('error');
     const errorDescription = params.get('error_description');
 
-    console.log('URL completa:', window.location.href);
-    console.log('Params detectados:', Object.fromEntries(params.entries()));
     console.log('Token encontrado:', accessToken ? 'Sí' : 'No');
     console.log('Tipo:', type);
-
+    
     const errorDiv = document.getElementById('error');
-
+    
     if (errorParam) {
         errorDiv.textContent = `Error: ${errorDescription || errorParam}`;
         errorDiv.style.display = 'block';
@@ -53,22 +28,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!accessToken) {
         errorDiv.textContent = 'Token no encontrado en la URL. Asegúrate de usar el enlace del email.';
         errorDiv.style.display = 'block';
-    } else if (!
-        _isLikelyJwt(accessToken)
-    ) {
-        // Token presente pero no parece un JWT válido
-        const details = Object.fromEntries(params.entries());
-        errorDiv.innerHTML = `Token detectado pero inválido (formato inesperado).<br>Detalles detectados: <pre>${JSON.stringify(details)}</pre><br>Solución: abre el enlace completo desde el correo en tu navegador (no en previews de apps). Si el enlace abre en otra app, copia y pega la URL completa en la barra de direcciones del navegador.`;
-        errorDiv.style.display = 'block';
     }
 });
-
-
-function _isLikelyJwt(token) {
-    if (!token || typeof token !== 'string') return false;
-    // JWT tiene 3 segmentos separados por puntos
-    return token.split('.').length === 3;
-}
 
 document.getElementById('resetForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -96,8 +57,9 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
         return;
     }
 
-    // Obtener access token de la URL (hash o query)
-    const params = _getParamsFromHashOrSearch();
+    // Obtener access token de la URL
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
     const accessToken = params.get('access_token');
 
     console.log('Intentando actualizar contraseña con token:', accessToken?.substring(0, 20) + '...');
@@ -105,17 +67,6 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
     if (!accessToken) {
         errorDiv.textContent = 'Token inválido o expirado. Solicita un nuevo enlace de recuperación.';
         errorDiv.style.display = 'block';
-        return;
-    }
-
-    if (! _isLikelyJwt(accessToken)) {
-        // Evitar enviar un token malformado a Supabase y dar instrucciones útiles
-        const paramsAll = Object.fromEntries(params.entries());
-        errorDiv.innerHTML = `Token detectado pero inválido (formato inesperado).<br>Parámetros detectados: <pre>${JSON.stringify(paramsAll)}</pre><br>Abre el enlace completo del correo en el navegador o copia la URL completa aquí.`;
-        errorDiv.style.display = 'block';
-        submitBtn.disabled = false;
-        btnText.style.display = 'inline';
-        btnLoader.style.display = 'none';
         return;
     }
 
