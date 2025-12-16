@@ -48,21 +48,22 @@ function getTokenFromURL() {
     };
 }
 
-// Función para intercambiar el code por un access_token
+// Función para verificar el recovery code y obtener la sesión
 async function exchangeCodeForToken(code) {
     try {
-        console.log('🔄 Intercambiando code por access_token...');
+        console.log('🔄 Verificando recovery code con Supabase...');
         console.log('📍 Code recibido:', code);
         
-        // Intentar con el endpoint correcto de Supabase para PKCE
-        const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+        // Usar el endpoint verify para recovery tokens
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'apikey': SUPABASE_KEY
             },
             body: JSON.stringify({
-                auth_code: code
+                type: 'recovery',
+                token: code
             })
         });
         
@@ -74,33 +75,11 @@ async function exchangeCodeForToken(code) {
             console.log('✅ Token obtenido exitosamente');
             return data.access_token;
         } else {
-            console.error('❌ Error al intercambiar code:', data);
-            
-            // Si PKCE falla, intentar con password_recovery
-            console.log('🔄 Intentando con grant_type=password_recovery...');
-            const response2 = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password_recovery`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': SUPABASE_KEY
-                },
-                body: JSON.stringify({
-                    auth_code: code
-                })
-            });
-            
-            const data2 = await response2.json();
-            console.log('📍 Response 2 data:', data2);
-            
-            if (response2.ok && data2.access_token) {
-                console.log('✅ Token obtenido con password_recovery');
-                return data2.access_token;
-            }
-            
+            console.error('❌ Error al verificar code:', data);
             return null;
         }
     } catch (error) {
-        console.error('❌ Error de red al intercambiar code:', error);
+        console.error('❌ Error de red al verificar code:', error);
         return null;
     }
 }
