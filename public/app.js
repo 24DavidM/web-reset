@@ -51,19 +51,18 @@ function getTokenFromURL() {
 // Función para verificar el recovery code y obtener la sesión
 async function exchangeCodeForToken(code) {
     try {
-        console.log('🔄 Verificando recovery code con Supabase...');
+        console.log('🔄 Intercambiando authorization code con Supabase...');
         console.log('📍 Code recibido:', code);
         
-        // Usar el endpoint verify para recovery tokens
-        const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+        // Usar el endpoint token con grant_type=authorization_code
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=authorization_code`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'apikey': SUPABASE_KEY
             },
             body: JSON.stringify({
-                type: 'recovery',
-                token: code
+                code: code
             })
         });
         
@@ -75,7 +74,7 @@ async function exchangeCodeForToken(code) {
             console.log('✅ Token obtenido exitosamente');
             return data.access_token;
         } else {
-            console.error('❌ Error al verificar code:', data);
+            console.error('❌ Error al intercambiar code:', data);
             return null;
         }
     } catch (error) {
@@ -282,4 +281,4 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
         btnText.style.display = 'inline';
         btnLoader.style.display = 'none';
     }
-});
+});F
