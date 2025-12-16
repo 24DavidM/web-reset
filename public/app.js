@@ -36,10 +36,12 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
   if (!accessToken) {
     const queryParams = new URLSearchParams(window.location.search);
     const token = queryParams.get('token');
-    const type = queryParams.get('type');
+    const type = queryParams.get('type') || 'recovery'; // Default to recovery if missing
     const email = queryParams.get('email');
 
-    if (token && type === 'recovery') {
+    console.log('Verifying token:', { token, type, email });
+
+    if (token) {
       try {
         const verifyResponse = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
           method: 'POST',
@@ -53,6 +55,9 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
         if (verifyResponse.ok) {
           const data = await verifyResponse.json();
           accessToken = data.access_token;
+        } else {
+          const errorData = await verifyResponse.json();
+          console.error('Error verification response:', errorData);
         }
       } catch (e) {
         console.error('Error verificando token:', e);
