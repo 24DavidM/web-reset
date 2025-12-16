@@ -1,33 +1,128 @@
 const SUPABASE_URL = 'https://ilojggjfajbyntuqucvf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlsb2pnZ2pmYWpieW50dXF1Y3ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMTQ5ODUsImV4cCI6MjA4MDg5MDk4NX0.pywQBDVUjyKiWzkBz-ovDKiCwqO1rlt4SFUTk1n_RVA';
 
-// Debug: Mostrar la URL completa al cargar
-console.log('URL completa:', window.location.href);
-console.log('Hash:', window.location.hash);
-
-// Verificar si hay token al cargar la página
-window.addEventListener('DOMContentLoaded', () => {
+// Función para extraer el token de la URL (tanto hash como query params)
+function getTokenFromURL() {
+    // Primero intenta obtener del hash fragment (#)
     const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get('access_token');
-    const type = params.get('type');
-    const errorParam = params.get('error');
-    const errorDescription = params.get('error_description');
+    const hashParams = new URLSearchParams(hash);
+    const hashToken = hashParams.get('access_token');
+    const hashType = hashParams.get('type');
+    
+    console.log('📍 Debug Hash:', {
+        raw: window.location.hash,
+        parsed: hash,
+        token: hashToken,
+        type: hashType
+    });
+    
+    // Si no está en el hash, intenta query parameters (?)
+    const searchParams = new URLSearchParams(window.location.search);
+    const queryToken = searchParams.get('access_token');
+    const queryType = searchParams.get('type');
+    
+    console.log('📍 Debug Query:', {
+        raw: window.location.search,
+        token: queryToken,
+        type: queryType
+    });
+    
+    const finalToken = hashToken || queryToken;
+    const finalType = hashType || queryType;
+    
+    console.log('📍 Token Final:', finalToken ? '✅ Encontrado' : '❌ No encontrado');
+    
+    return {
+        token: finalToken,
+        type: finalType,
+        error: hashParams.get('error') || searchParams.get('error'),
+        errorDescription: hashParams.get('error_description') || searchParams.get('error_description')
+    };
+}
 
-    console.log('Token encontrado:', accessToken ? 'Sí' : 'No');
+// Función para extraer token de una URL completa pegada manualmente
+function extractTokenFromFullURL(fullURL) {
+    try {
+        const url = new URL(fullURL);
+        
+        // Intentar desde hash
+        const hash = url.hash.substring(1);
+        const hashParams = new URLSearchParams(hash);
+        const hashToken = hashParams.get('access_token');
+        
+        // Intentar desde query
+        const queryToken = url.searchParams.get('access_token');
+        
+        return hashToken || queryToken;
+    } catch (e) {
+        console.error('Error al parsear URL:', e);
+        return null;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const { token, type, error, errorDescription } = getTokenFromURL();
+    
+    // Agregar listener para el botón de extraer token
+    const extractBtn = document.getElementById('extractTokenBtn');
+    if (extractBtn) {
+        extractBtn.addEventListener('click', () => {
+            const urlInput = document.getElementById('urlInput');
+            const fullURL = urlInput.value.trim();
+            
+            if (!fullURL) {
+                alert('Por favor pega el enlace completo del email');
+                return;
+            }
+            
+            const extractedToken = extractTokenFromFullURL(fullURL);
+            
+            if (extractedToken) {
+                console.log('✅ Token extraído exitosamente');
+                // Recargar la página con el token en el hash
+                window.location.hash = `access_token=${extractedToken}&type=recovery`;
+                window.location.reload();
+            } else {
+                alert('No se pudo extraer el token de la URL. Verifica que sea el enlace correcto del email.');
+            }
+        });
+    }
+    
+    console.log('🔍 Información de URL:');
+    console.log('Token encontrado:', token ? 'Sí (' + token.substring(0, 20) + '...)' : 'No');
     console.log('Tipo:', type);
+    console.log('URL completa:', window.location.href);
+    console.log('Hash:', window.location.hash);
+    console.log('Query:', window.location.search);
     
     const errorDiv = document.getElementById('error');
     
-    if (errorParam) {
-        errorDiv.textContent = `Error: ${errorDescription || errorParam}`;
+    if (error) {
+        errorDiv.textContent = `Error: ${errorDescription || error}`;
         errorDiv.style.display = 'block';
         return;
     }
 
-    if (!accessToken) {
-        errorDiv.textContent = 'Token no encontrado en la URL. Asegúrate de usar el enlace del email.';
+    if (!token) {
+        errorDiv.innerHTML = `
+            <strong>⚠️ Token no encontrado</strong><br>
+            <small>URL actual: ${window.location.href.substring(0, 80)}...</small><br>
+            <small>Puedes pegar el enlace completo del email abajo o solicitar un nuevo correo de recuperación.</small>
+        `;
         errorDiv.style.display = 'block';
+        
+        // Mostrar sección para pegar el token manualmente
+        const tokenSection = document.getElementById('tokenInputSection');
+        if (tokenSection) {
+            tokenSection.style.display = 'block';
+        }
+    } else {
+        console.log('✅ Token válido encontrado:', token.substring(0, 30) + '...');
+        // Ocultar la sección de token manual si el token fue encontrado
+        const tokenSection = document.getElementById('tokenInputSection');
+        if (tokenSection) {
+            tokenSection.style.display = 'none';
+        }
     }
 });
 
@@ -57,12 +152,18 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
         return;
     }
 
-    // Obtener access token de la URL
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get('access_token');
+    // Obtener token de la URL o del input manual
+    let { token: accessToken } = getTokenFromURL();
+    
+    // Si no hay token en la URL, intentar obtenerlo del input manual
+    if (!accessToken) {
+        const manualToken = document.getElementById('tokenInput')?.value.trim();
+        if (manualToken) {
+            accessToken = manualToken;
+        }
+    }
 
-    console.log('Intentando actualizar contraseña con token:', accessToken?.substring(0, 20) + '...');
+    console.log('🔑 Intentando actualizar contraseña con token:', accessToken?.substring(0, 20) + '...');
 
     if (!accessToken) {
         errorDiv.textContent = 'Token inválido o expirado. Solicita un nuevo enlace de recuperación.';
@@ -97,7 +198,15 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
         } else {
             const error = await response.json();
             console.error('❌ Error de Supabase:', error);
-            errorDiv.textContent = error.msg || error.message || 'Error al actualizar contraseña';
+            console.error('❌ Status:', response.status);
+            console.error('❌ Token usado:', accessToken.substring(0, 30) + '...');
+            
+            let errorMsg = error.msg || error.message || 'Error al actualizar contraseña';
+            if (response.status === 401 || response.status === 403) {
+                errorMsg = 'Token inválido o expirado. Solicita un nuevo enlace de recuperación.';
+            }
+            
+            errorDiv.innerHTML = `<strong>Error:</strong> ${errorMsg}`;
             errorDiv.style.display = 'block';
         }
     } catch (error) {
