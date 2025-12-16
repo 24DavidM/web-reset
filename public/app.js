@@ -24,12 +24,18 @@ function getTokenFromURL() {
     // También buscar el parámetro 'code' que Supabase envía con PKCE
     const queryCode = searchParams.get('code');
     const hashCode = hashParams.get('code');
+
+    // Buscar token de recuperación directo y email (para flujo personalizado)
+    const recoveryToken = searchParams.get('token');
+    const email = searchParams.get('email');
     
     console.log('📍 Debug Query:', {
         raw: window.location.search,
         token: queryToken,
         type: queryType,
-        code: queryCode
+        code: queryCode,
+        recoveryToken: recoveryToken,
+        email: email
     });
     
     const finalToken = hashToken || queryToken;
@@ -43,9 +49,42 @@ function getTokenFromURL() {
         token: finalToken,
         type: finalType,
         code: finalCode,
+        recoveryToken: recoveryToken,
+        email: email,
         error: hashParams.get('error') || searchParams.get('error'),
         errorDescription: hashParams.get('error_description') || searchParams.get('error_description')
     };
+}
+
+// Función para verificar el recovery token directo (flujo personalizado)
+async function verifyRecoveryToken(email, token) {
+    try {
+        console.log('🔄 Verificando recovery token directo...');
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY
+            },
+            body: JSON.stringify({
+                type: 'recovery',
+                token: token,
+                email: email
+            })
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.access_token) {
+            console.log('✅ Token verificado exitosamente');
+            return data.access_token;
+        } else {
+            console.error('❌ Error al verificar token:', data);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Error de red:', error);
+        return null;
+    }
 }
 
 // Función para verificar el recovery code y obtener la sesión
@@ -104,8 +143,27 @@ function extractTokenFromFullURL(fullURL) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const { token, type, code, error, errorDescription } = getTokenFromURL();
+    const { token, type, code, recoveryToken, email, error, errorDescription } = getTokenFromURL();
     
+    // Si hay un recovery token y email (flujo directo), verificarlo
+    if (recoveryToken && email && !token) {
+        console.log('🔄 Recovery token detectado, verificando...');
+        const accessToken = await verifyRecoveryToken(email, recoveryToken);
+        
+        if (accessToken) {
+            console.log('✅ Redirigiendo con access_token...');
+            window.location.hash = `access_token=${accessToken}&type=recovery`;
+            window.location.search = '';
+            window.location.reload();
+            return;
+        } else {
+            const errorDiv = document.getElementById('error');
+            errorDiv.innerHTML = '<strong>❌ Error:</strong> El enlace de recuperación es inválido o ha expirado.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+    }
+
     // Si hay un code, intercambiarlo por access_token
     if (code && !token) {
         console.log('🔄 Code detectado, intercambiando por access_token...');
@@ -281,4 +339,4 @@ document.getElementById('resetForm').addEventListener('submit', async (e) => {
         btnText.style.display = 'inline';
         btnLoader.style.display = 'none';
     }
-});F
+});
